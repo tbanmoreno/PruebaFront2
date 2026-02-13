@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../../api/api';
+import { notify } from '../../utils/alerts'; // Integración de SweetAlert2
 import { Loader2, Package, Calendar, ChevronDown, FileText, ShoppingBag } from 'lucide-react';
 import { generateInvoiceHTML } from '../../utils/invoiceGenerator';
 
@@ -14,27 +15,40 @@ const OrderManagement = () => {
     queryFn: async () => (await api.get('/pedidos')).data
   });
 
-  // MUTACIÓN CORREGIDA: Enviamos un objeto para evitar el error 415/400
   const statusMutation = useMutation({
     mutationFn: ({ id, nuevoEstado }) => api.patch(`/pedidos/${id}/estado`, { nuevoEstado }),
     onSuccess: () => {
       queryClient.invalidateQueries(['admin-orders']);
       queryClient.invalidateQueries(['dashboard-stats']);
-      alert("Estado de pedido actualizado con éxito");
+      notify.success("¡Estado Actualizado!", "El flujo del pedido ha sido sincronizado en la base de datos.");
     },
     onError: (error) => {
-      console.error("Error en la mutación:", error.response?.data);
-      alert("Error al actualizar: " + (error.response?.data?.message || "Fallo de red"));
+      const msg = error.response?.data?.message || "Fallo de conexión al actualizar estado.";
+      notify.error("Error de Gestión", msg);
     }
   });
 
-  const handleDownloadInvoice = async (id) => {
+  const handleDownloadInvoice = async (order) => {
+    // Validación preventiva local para mejorar UX
+    if (order.estadoPedido !== 'PAGADO' && order.estadoPedido !== 'ENTREGADO') {
+      return notify.error(
+        "Factura No Disponible", 
+        "Para generar el comprobante, el estado del pedido debe ser PAGADO o ENTREGADO."
+      );
+    }
+
     setIsGenerating(true);
     try {
-      const response = await api.get(`/facturas/pedido/${id}`);
+      // Ahora este endpoint ya existe en el Backend corregido arriba
+      const response = await api.get(`/facturas/pedido/${order.idPedido}`);
       generateInvoiceHTML(response.data);
+      notify.success("Documento Generado", "La factura se ha generado correctamente.");
     } catch (err) {
-      alert("No se encontró factura. El pedido debe estar PAGADO.");
+      console.error("Error al obtener factura:", err.response);
+      notify.error(
+        "Error 404", 
+        "No se encontró la factura física en el servidor. Asegúrate de que el pedido haya sido procesado correctamente."
+      );
     } finally {
       setIsGenerating(false);
     }
@@ -43,13 +57,20 @@ const OrderManagement = () => {
   if (isLoading) return (
     <div className="flex flex-col items-center justify-center p-20 space-y-4">
       <Loader2 className="animate-spin text-amber-800 w-12 h-12" />
-      <p className="text-stone-400 font-black uppercase tracking-widest text-xs">Cargando flujos operativos...</p>
+      <p className="text-stone-400 font-black uppercase tracking-widest text-xs italic animate-pulse">
+        Sincronizando operaciones Valenci...
+      </p>
     </div>
   );
 
   return (
     <div className="space-y-8 animate-in fade-in duration-700">
-      <h2 className="text-4xl font-black text-stone-800 tracking-tighter">Gestión de Pedidos</h2>
+      <div className="flex justify-between items-end">
+        <div>
+          <h2 className="text-4xl font-black text-stone-800 tracking-tighter uppercase italic">Gestión de Pedidos</h2>
+          <p className="text-stone-400 font-bold text-sm uppercase tracking-widest">Control de logística y facturación oficial</p>
+        </div>
+      </div>
       
       <div className="grid gap-6">
         {orders?.map(order => (
@@ -61,8 +82,8 @@ const OrderManagement = () => {
                   <Package className="w-8 h-8" />
                 </div>
                 <div>
-                  <p className="text-[10px] font-black text-stone-300 uppercase mb-1">Orden #{order.idPedido}</p>
-                  <h4 className="font-black text-2xl text-stone-800 tracking-tighter">
+                  <p className="text-[10px] font-black text-stone-300 uppercase mb-1 tracking-widest">Orden #{order.idPedido}</p>
+                  <h4 className="font-black text-2xl text-stone-800 tracking-tighter uppercase italic">
                     {order.nombreCliente}
                   </h4>
                   <div className="flex items-center gap-3 text-sm font-bold text-stone-400 mt-2">
@@ -80,7 +101,7 @@ const OrderManagement = () => {
                   </p>
                 </div>
 
-                <div className="flex items-center gap-3 bg-stone-50 p-2 rounded-2xl border border-stone-100">
+                <div className="flex items-center gap-3 bg-stone-50 p-2 rounded-2xl border border-stone-100 shadow-inner">
                   <select 
                     className="bg-transparent border-none text-[11px] font-black uppercase tracking-widest text-stone-700 outline-none cursor-pointer px-2"
                     value={order.estadoPedido}
@@ -95,16 +116,16 @@ const OrderManagement = () => {
                     <option value="CANCELADO">Cancelado</option>
                   </select>
                   
-                  <div className={`w-3 h-3 rounded-full shadow-sm ${
-                    order.estadoPedido === 'PAGADO' || order.estadoPedido === 'ENTREGADO' ? 'bg-green-500' : 
-                    order.estadoPedido === 'CANCELADO' ? 'bg-red-500' : 'bg-amber-500'
+                  <div className={`w-3 h-3 rounded-full shadow-sm animate-pulse ${
+                    order.estadoPedido === 'PAGADO' || order.estadoPedido === 'ENTREGADO' ? 'bg-green-500 shadow-green-200' : 
+                    order.estadoPedido === 'CANCELADO' ? 'bg-red-500 shadow-red-200' : 'bg-amber-500 shadow-amber-200'
                   }`} />
                 </div>
 
                 <div className="flex gap-2">
                   <button 
-                    onClick={() => handleDownloadInvoice(order.idPedido)}
-                    className="p-4 bg-stone-900 text-amber-400 rounded-2xl hover:bg-amber-800 hover:text-white transition-all shadow-md active:scale-95 disabled:opacity-50"
+                    onClick={() => handleDownloadInvoice(order)}
+                    className="p-4 bg-stone-900 text-amber-400 rounded-2xl hover:bg-amber-600 hover:text-stone-950 transition-all shadow-md active:scale-95 disabled:opacity-50"
                   >
                     {isGenerating ? <Loader2 className="w-5 h-5 animate-spin" /> : <FileText className="w-5 h-5" />}
                   </button>
@@ -125,12 +146,12 @@ const OrderManagement = () => {
               <div className="bg-stone-50/50 border-t border-stone-100 p-10 animate-in slide-in-from-top-4 duration-500">
                 <div className="flex items-center gap-3 mb-6 text-stone-400">
                   <ShoppingBag className="w-5 h-5" />
-                  <span className="text-[11px] font-black uppercase tracking-[0.3em]">Resumen de productos</span>
+                  <span className="text-[11px] font-black uppercase tracking-[0.3em]">Resumen de productos seleccionados</span>
                 </div>
                 
-                <div className="max-w-4xl bg-white rounded-[2rem] border border-stone-200 shadow-inner overflow-hidden mx-auto">
-                   <table className="w-full text-left">
-                      <thead className="bg-stone-50 font-black text-[10px] uppercase text-stone-400 tracking-widest border-b border-stone-100">
+                <div className="max-w-4xl bg-white rounded-[2rem] border border-stone-200 shadow-xl overflow-hidden mx-auto">
+                   <table className="w-full text-left border-collapse">
+                      <thead className="bg-stone-900 font-black text-[10px] uppercase text-stone-400 tracking-widest border-b border-stone-800">
                         <tr>
                           <th className="p-6">Variedad de Café</th>
                           <th className="p-6 text-center">Cantidad</th>
@@ -139,10 +160,10 @@ const OrderManagement = () => {
                       </thead>
                       <tbody className="divide-y divide-stone-50">
                         {order.detalles?.map((det, i) => (
-                          <tr key={i} className="text-sm">
-                            <td className="p-6 font-bold text-stone-800">{det.nombreProducto}</td>
-                            <td className="p-6 text-center font-medium text-stone-500">{det.cantidad} uds</td>
-                            <td className="p-6 text-right font-black text-amber-900">${det.subtotal?.toLocaleString()}</td>
+                          <tr key={i} className="hover:bg-amber-50/20 transition-colors text-xs">
+                            <td className="p-6 font-black text-stone-800 uppercase">{det.nombreProducto}</td>
+                            <td className="p-6 text-center font-bold text-stone-500">{det.cantidad} uds</td>
+                            <td className="p-6 text-right font-black text-amber-900 tracking-tighter">${det.subtotal?.toLocaleString()}</td>
                           </tr>
                         ))}
                       </tbody>

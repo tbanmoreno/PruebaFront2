@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useCart } from '../context/CartContext';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/api';
+import { notify } from '../utils/alerts';
 import { CreditCard, Loader2, CheckCircle, ArrowLeft } from 'lucide-react';
 
 const Checkout = () => {
@@ -12,8 +13,16 @@ const Checkout = () => {
 
   const handleOrder = async (e) => {
     e.preventDefault();
-    if (cart.length === 0) return alert("Tu carrito está vacío.");
+    if (cart.length === 0) return notify.error("Carrito vacío", "Añade productos antes de finalizar.");
     
+    // Alerta de confirmación profesional
+    const result = await notify.confirm(
+      "¿Confirmar pedido?", 
+      `Estás a punto de procesar una inversión de $${cartTotal.toLocaleString()}.`
+    );
+
+    if (!result.isConfirmed) return;
+
     setLoading(true);
     try {
       const payload = {
@@ -24,18 +33,16 @@ const Checkout = () => {
         metodoPago
       };
 
-      // Intentamos procesar el pedido
       const response = await api.post('/pedidos', payload);
       
       if (response.status === 201) {
         clearCart();
-        alert("¡Cosecha confirmada! Tu pedido ha sido procesado.");
+        await notify.success("¡Cosecha confirmada!", "Tu pedido ha sido procesado exitosamente.");
         navigate('/perfil/historial');
       }
     } catch (err) {
-      console.error("Fallo en el Checkout:", err.response?.data);
-      const errorMsg = err.response?.data?.message || "No se pudo procesar el pago. Verifica tu conexión.";
-      alert(`Error en el proceso: ${errorMsg}`);
+      const errorMsg = err.response?.data?.message || "No se pudo procesar el pago.";
+      notify.error("Error en proceso", errorMsg);
     } finally {
       setLoading(false);
     }

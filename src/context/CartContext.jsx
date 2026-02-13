@@ -1,9 +1,9 @@
 import { createContext, useContext, useState, useEffect } from 'react';
+import { notify } from '../utils/alerts';
 
 const CartContext = createContext();
 
 export const CartProvider = ({ children }) => {
-  // Persistimos el carrito en localStorage para que no se pierda al recargar
   const [cart, setCart] = useState(() => {
     const savedCart = localStorage.getItem('cart_valenci');
     return savedCart ? JSON.parse(savedCart) : [];
@@ -16,12 +16,27 @@ export const CartProvider = ({ children }) => {
   const addToCart = (product) => {
     setCart(prev => {
       const existing = prev.find(item => item.id === product.id);
+      
+      // Notificación sutil de éxito al añadir
+      if ((product.quantity || 1) > 0) {
+        notify.success("Bolsa actualizada", `${product.name || 'El producto'} se ha sumado.`);
+      }
+
       if (existing) {
+        const newQuantity = existing.quantity + (product.quantity || 1);
+
+        if (newQuantity <= 0) {
+          return prev.filter(item => item.id !== product.id);
+        }
+
         return prev.map(item => 
-          item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
+          item.id === product.id ? { ...item, quantity: newQuantity } : item
         );
       }
-      return [...prev, { ...product, quantity: 1 }];
+
+      if ((product.quantity || 1) <= 0) return prev;
+
+      return [...prev, { ...product, quantity: product.quantity || 1 }];
     });
   };
 
@@ -35,7 +50,14 @@ export const CartProvider = ({ children }) => {
   const cartCount = cart.reduce((acc, item) => acc + item.quantity, 0);
 
   return (
-    <CartContext.Provider value={{ cart, addToCart, removeFromCart, clearCart, cartTotal, cartCount }}>
+    <CartContext.Provider value={{ 
+      cart, 
+      addToCart, 
+      removeFromCart, 
+      clearCart, 
+      cartTotal, 
+      cartCount 
+    }}>
       {children}
     </CartContext.Provider>
   );

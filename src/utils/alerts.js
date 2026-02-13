@@ -1,6 +1,5 @@
 import Swal from 'sweetalert2';
 
-// Estilización Luxury Valenci
 const ValenciAlert = Swal.mixin({
   customClass: {
     confirmButton: 'bg-stone-900 text-amber-500 px-8 py-3 rounded-xl font-black uppercase tracking-widest text-xs hover:bg-amber-600 hover:text-stone-950 transition-all ml-3 outline-none',
@@ -18,7 +17,7 @@ export const notify = {
     iconColor: '#d97706',
     title,
     text,
-    timer: 2000,
+    timer: 2500,
     showConfirmButton: false
   }),
   

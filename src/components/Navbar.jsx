@@ -1,18 +1,31 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
+import { notify } from '../utils/alerts'; // Importación de SweetAlert2
 import { Coffee, User, LogOut, ShieldCheck, ShoppingCart, UserCircle } from 'lucide-react';
 
 const Navbar = () => {
   const { logout, isAdmin, isAuthenticated, user } = useAuth();
   const { cartCount } = useCart();
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    const result = await notify.confirm(
+      "¿Deseas salir?",
+      "Tu sesión se cerrará de forma segura.",
+      "Cerrar Sesión"
+    );
+
+    if (result.isConfirmed) {
+      logout();
+      navigate('/login');
+    }
+  };
 
   return (
-    /* CAMBIO: De 'absolute' a 'sticky' con fondo inteligente */
     <nav className="sticky top-0 w-full z-[100] bg-stone-900/95 backdrop-blur-md text-stone-100 py-4 px-6 border-b border-stone-800 shadow-xl">
       <div className="max-w-7xl mx-auto flex justify-between items-center">
         
-        {/* LOGO CON CONTRASTE ALTO */}
         <Link to="/" className="flex items-center gap-3 group transition-transform active:scale-95">
           <div className="bg-amber-600 p-2 rounded-xl group-hover:bg-amber-500 transition-all shadow-lg shadow-amber-900/40">
             <Coffee className="w-6 h-6 text-stone-950" />
@@ -23,10 +36,8 @@ const Navbar = () => {
           </div>
         </Link>
 
-        {/* ACCIONES DE USUARIO */}
         <div className="flex items-center gap-4 md:gap-8">
           
-          {/* CARRITO */}
           <Link to="/cart" className="relative p-2 hover:text-amber-500 transition-all group">
             <ShoppingCart className="w-6 h-6" />
             {cartCount > 0 && (
@@ -39,14 +50,12 @@ const Navbar = () => {
           {isAuthenticated ? (
             <div className="flex items-center gap-3 md:gap-6 border-l border-stone-800 pl-6">
               
-              {/* ACCESO RÁPIDO ADMIN */}
               {isAdmin && (
                 <Link to="/admin" className="hidden md:flex bg-amber-600 text-stone-950 px-4 py-2 rounded-xl text-[10px] font-black uppercase hover:bg-amber-500 transition-all shadow-md">
                   <ShieldCheck className="w-4 h-4 mr-1 inline" /> Panel Admin
                 </Link>
               )}
               
-              {/* NOMBRE Y PERFIL */}
               <div className="flex items-center gap-3">
                 <div className="hidden lg:flex flex-col items-end">
                   <span className="text-[10px] font-black uppercase text-stone-500 tracking-widest">Bienvenido</span>
@@ -57,9 +66,8 @@ const Navbar = () => {
                 </Link>
               </div>
 
-              {/* SALIR */}
               <button 
-                onClick={logout} 
+                onClick={handleLogout} 
                 className="text-stone-500 hover:text-red-400 transition-colors p-2"
                 title="Cerrar Sesión"
               >

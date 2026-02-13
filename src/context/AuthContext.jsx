@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useMemo } from 'react';
+import { createContext, useContext, useState, useMemo, useEffect } from 'react';
 import api from '../api/api';
 
 const AuthContext = createContext();
@@ -6,12 +6,25 @@ const AuthContext = createContext();
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(() => JSON.parse(localStorage.getItem('user')) || null);
     const [token, setToken] = useState(() => localStorage.getItem('token') || null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const storedToken = localStorage.getItem('token');
+        const storedUser = localStorage.getItem('user');
+        
+        if (storedToken && storedUser) {
+            setToken(storedToken);
+            setUser(JSON.parse(storedUser));
+        }
+        setLoading(false);
+    }, []);
 
     const login = async (credentials) => {
         try {
             const response = await api.post('/auth/login', credentials);
             const { token: receivedToken } = response.data;
 
+            // Guardamos el token primero para que el interceptor de api.js lo capture
             localStorage.setItem('token', receivedToken);
             setToken(receivedToken);
 
@@ -23,7 +36,6 @@ export const AuthProvider = ({ children }) => {
             
             return userData;
         } catch (error) {
-            logout();
             throw error;
         }
     };
@@ -31,30 +43,40 @@ export const AuthProvider = ({ children }) => {
     const logout = () => {
         setUser(null);
         setToken(null);
-        localStorage.clear();
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        
         if (window.location.pathname !== '/login') {
             window.location.href = '/login';
         }
     };
 
-    const isAdmin = user?.rol === 'ADMINISTRADOR';
-    const isAuthenticated = !!token;
+    const isAdmin = useMemo(() => user?.rol === 'ADMINISTRADOR', [user]);
+    const isAuthenticated = useMemo(() => !!token, [token]);
 
-    // Usamos useMemo para el valor del contexto. 
-    // Esto mejora el rendimiento y ayuda a Vite a rastrear las dependencias.
     const value = useMemo(() => ({
         user,
-        setUser, // Ahora disponible para OrderHistory.jsx
+        setUser,
         token,
         login,
         logout,
         isAdmin,
-        isAuthenticated
-    }), [user, token]);
+        isAuthenticated,
+        loading
+    }), [user, token, isAdmin, isAuthenticated, loading]);
 
     return (
         <AuthContext.Provider value={value}>
-            {children}
+            {!loading ? children : (
+                <div className="flex h-screen items-center justify-center bg-stone-50">
+                    <div className="flex flex-col items-center gap-4">
+                        <div className="h-12 w-12 animate-spin rounded-full border-4 border-stone-200 border-t-amber-800" />
+                        <p className="font-black uppercase tracking-widest text-[10px] text-stone-400 italic">
+                            Validando Cosecha...
+                        </p>
+                    </div>
+                </div>
+            )}
         </AuthContext.Provider>
     );
 };

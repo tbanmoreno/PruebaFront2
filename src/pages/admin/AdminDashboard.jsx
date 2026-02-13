@@ -1,5 +1,6 @@
 import { Link, useLocation, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { notify } from '../../utils/alerts'; // Importación de SweetAlert2
 import { 
   Package, 
   Users, 
@@ -9,7 +10,7 @@ import {
   BarChart3, 
   FileText,
   LogOut,
-  Truck // Nuevo icono para proveedores
+  Truck 
 } from 'lucide-react';
 
 const AdminDashboard = () => {
@@ -23,11 +24,17 @@ const AdminDashboard = () => {
     { name: 'Pedidos', path: '/admin/pedidos', icon: Package },
     { name: 'Facturas', path: '/admin/facturas', icon: FileText }, 
     { name: 'Clientes', path: '/admin/clientes', icon: Users },
-    { name: 'Proveedores', path: '/admin/proveedores', icon: Truck }, // Módulo agregado
+    { name: 'Proveedores', path: '/admin/proveedores', icon: Truck },
   ];
 
-  const handleLogout = () => {
-    if (window.confirm("¿Deseas cerrar la sesión administrativa?")) {
+  const handleLogout = async () => {
+    const result = await notify.confirm(
+      "Finalizar Sesión",
+      "¿Deseas cerrar la sesión administrativa del tostadero?",
+      "Cerrar Sesión"
+    );
+
+    if (result.isConfirmed) {
       logout();
       navigate('/login');
     }

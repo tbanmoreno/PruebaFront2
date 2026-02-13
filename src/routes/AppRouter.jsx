@@ -5,6 +5,7 @@ import MainLayout from '../layouts/MainLayout';
 // Páginas
 import Home from '../pages/Home';
 import Login from '../pages/Login';
+import Register from '../pages/Register'; // Nueva importación
 import Cart from '../pages/Cart';
 import Checkout from '../pages/Checkout';
 import Success from '../pages/Success';
@@ -34,17 +35,16 @@ const AppRouter = () => {
   return (
     <BrowserRouter>
       <Routes>
-        {/* RUTA PÚBLICA Y DE CLIENTE (MainLayout) */}
         <Route element={<MainLayout />}>
           <Route path="/" element={
             isAdmin ? <Navigate to="/admin" replace /> : <Home />
           } />
           
           <Route path="/login" element={isAuthenticated ? <Navigate to="/" replace /> : <Login />} />
+          <Route path="/register" element={isAuthenticated ? <Navigate to="/" replace /> : <Register />} /> {/* Nueva Ruta */}
           <Route path="/tienda" element={<Home />} />
           <Route path="/cart" element={<Cart />} />
           
-          {/* Rutas Protegidas del Cliente */}
           <Route path="/checkout" element={
             <ProtectedRoute>
               <Checkout />
@@ -57,7 +57,6 @@ const AppRouter = () => {
             </ProtectedRoute>
           } />
 
-          {/* AQUÍ ES DONDE EL CLIENTE VE SUS PEDIDOS Y PERFIL */}
           <Route path="/perfil/historial" element={
             <ProtectedRoute>
               <OrderHistory />
@@ -65,7 +64,6 @@ const AppRouter = () => {
           } />
         </Route>
 
-        {/* PANEL ADMINISTRATIVO (Sidebar Layout) */}
         <Route path="/admin" element={
           <ProtectedRoute adminOnly>
             <AdminDashboard />
