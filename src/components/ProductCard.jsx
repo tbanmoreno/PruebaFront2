@@ -7,14 +7,20 @@ const ProductCard = ({ product }) => {
   const [added, setAdded] = useState(false);
 
   const handleAdd = () => {
-    addToCart(product);
+    // Mapeamos al formato que espera el carrito antes de añadirlo
+    const itemForCart = {
+        id: product.id,
+        name: product.nombre, // Usamos la propiedad del DTO
+        price: product.precio,
+        quantity: 1
+    };
+    addToCart(itemForCart);
     setAdded(true);
     setTimeout(() => setAdded(false), 2000);
   };
 
   return (
     <div className="bg-white rounded-[2.5rem] p-4 border border-stone-100 shadow-sm hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 group">
-      {/* AREA DE IMAGEN / VISUAL */}
       <div className="h-64 bg-stone-100 rounded-[2rem] relative overflow-hidden flex items-center justify-center bg-gradient-to-br from-stone-100 to-stone-200">
         <div className="absolute top-4 left-4 bg-white/80 backdrop-blur-md px-3 py-1 rounded-full flex items-center gap-1.5 shadow-sm">
           <Award className="w-3 h-3 text-amber-700" />
@@ -24,35 +30,31 @@ const ProductCard = ({ product }) => {
         <div className="text-6xl group-hover:scale-110 transition-transform duration-700 select-none drop-shadow-2xl">
           ☕
         </div>
-        
-        {/* Overlay sutil al hacer hover */}
-        <div className="absolute inset-0 bg-amber-900/0 group-hover:bg-amber-900/5 transition-colors duration-500" />
       </div>
 
-      {/* CONTENIDO */}
       <div className="p-4 pt-6">
         <div className="flex flex-col gap-1 mb-4">
           <h3 className="text-xl font-black text-stone-800 leading-tight tracking-tighter uppercase">
-            {product.nombre || product.name}
+            {product.nombre}
           </h3>
           <p className="text-[10px] font-bold text-stone-400 uppercase tracking-[0.2em]">Origen Támesis</p>
         </div>
         
         <p className="text-sm text-stone-500 font-medium line-clamp-2 leading-relaxed mb-6 opacity-80">
-          {product.descripcion || product.description}
+          {product.descripcion}
         </p>
         
         <div className="flex items-center justify-between pt-4 border-t border-stone-50">
           <div className="flex flex-col">
             <span className="text-[9px] font-black text-stone-300 uppercase tracking-widest mb-0.5">Precio</span>
             <span className="text-2xl font-black text-stone-900 tracking-tighter">
-              ${(product.precio || product.price)?.toLocaleString()}
+              ${product.precio?.toLocaleString()}
             </span>
           </div>
 
           <button 
             onClick={handleAdd}
-            disabled={(product.cantidad || product.stock) <= 0}
+            disabled={product.cantidad <= 0}
             className={`flex items-center justify-center w-14 h-14 rounded-2xl transition-all duration-500 shadow-lg ${
               added 
                 ? 'bg-green-600 text-white' 
@@ -67,11 +69,10 @@ const ProductCard = ({ product }) => {
           </button>
         </div>
 
-        {/* INDICADOR DE STOCK SUTIL */}
         <div className="mt-4 flex items-center gap-2">
-            <div className={`w-1.5 h-1.5 rounded-full ${ (product.cantidad || product.stock) > 10 ? 'bg-green-500' : 'bg-orange-500'}`} />
+            <div className={`w-1.5 h-1.5 rounded-full ${product.cantidad > 10 ? 'bg-green-500' : 'bg-orange-500'}`} />
             <span className="text-[9px] font-black text-stone-400 uppercase tracking-widest">
-                Disponibilidad: {product.cantidad || product.stock} unidades
+                Disponibilidad: {product.cantidad} unidades
             </span>
         </div>
       </div>

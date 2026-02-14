@@ -6,14 +6,10 @@ export const useProducts = () => {
     queryKey: ['products'],
     queryFn: async () => {
       const { data } = await api.get('/productos');
-      // Aquí aplicamos el mapeo que discutimos antes para mantener coherencia
-      return data.map(p => ({
-        id: p.id,
-        name: p.nombre,
-        price: p.precio,
-        stock: p.cantidad,
-        description: p.descripcion
-      }));
+      // SENIOR TIP: No renombres las propiedades aquí. 
+      // Si el Backend envía 'nombreProducto', usa 'nombreProducto' en el componente.
+      // Esto reduce el costo de procesamiento en el cliente y mantiene la coherencia.
+      return data;
     }
   });
 };
