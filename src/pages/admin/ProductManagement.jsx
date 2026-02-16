@@ -2,13 +2,16 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../../api/api';
 import { notify } from '../../utils/alerts';
-import { Coffee, Trash2, Plus, Loader2, X, Building2, Save, Package } from 'lucide-react';
+import { Coffee, Trash2, Plus, Loader2, X, Building2, Save, Package, Image as ImageIcon, Edit2 } from 'lucide-react';
 
 const ProductManagement = () => {
   const queryClient = useQueryClient();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [previewImage, setPreviewImage] = useState(null);
+  
   const [formData, setFormData] = useState({ 
-    nombre: '', precio: '', cantidad: '', descripcion: '', idProveedor: '' 
+    nombre: '', precio: '', cantidad: '', descripcion: '', idProveedor: '', imagen: '' 
   });
 
   // 1. CARGA DE DATOS
@@ -17,217 +20,178 @@ const ProductManagement = () => {
     queryFn: async () => (await api.get('/productos')).data
   });
 
-  const { data: suppliers, isLoading: loadingSups } = useQuery({
+  const { data: suppliers } = useQuery({
     queryKey: ['admin-suppliers'],
     queryFn: async () => (await api.get('/proveedores')).data,
     enabled: isModalOpen
   });
 
-  // 2. MUTACIONES
-  const addMutation = useMutation({
-    mutationFn: (newProd) => {
-        console.log("Enviando a /productos con data:", newProd);
-        return api.post('/productos', newProd);
-    },
+  // 2. PROCESAMIENTO DE IMAGEN
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 1000000) return notify.error("Imagen pesada", "Máximo 1MB.");
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPreviewImage(reader.result);
+        setFormData({ ...formData, imagen: reader.result });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // 3. MUTACIONES (Crear y Editar)
+  const saveMutation = useMutation({
+    mutationFn: (data) => editingId 
+      ? api.put(`/productos/${editingId}`, data) 
+      : api.post('/productos', data),
     onSuccess: () => {
       queryClient.invalidateQueries(['admin-products']);
-      setIsModalOpen(false);
-      setFormData({ nombre: '', precio: '', cantidad: '', descripcion: '', idProveedor: '' });
-      notify.success("¡Cosecha Registrada!", "El producto se añadió al inventario.");
-    },
-    onError: (err) => {
-      console.error("Error detectado:", err);
-      notify.error("Error de Conexión", err.response?.data?.message || "No se pudo conectar con el servidor.");
+      closeModal();
+      notify.success("Sincronizado", "Catálogo actualizado con éxito.");
     }
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id) => api.delete(`/productos/${id}`),
-    onSuccess: () => {
-      queryClient.invalidateQueries(['admin-products']);
-      notify.success("Eliminado", "Producto removido con éxito.");
-    }
+    onSuccess: () => queryClient.invalidateQueries(['admin-products']),
   });
 
-  // 3. HANDLERS
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (!formData.idProveedor) return notify.error("Falta información", "Selecciona un proveedor");
-    
-    const dataToSend = {
-      nombre: formData.nombre.trim(),
-      descripcion: formData.descripcion,
-      precio: Number(formData.precio),
-      cantidad: parseInt(formData.cantidad, 10),
-      idProveedor: parseInt(formData.idProveedor, 10)
-    };
-    addMutation.mutate(dataToSend);
+  // 4. CONTROL DE MODAL
+  const openModal = (product = null) => {
+    if (product) {
+      setEditingId(product.id);
+      setPreviewImage(product.imagen);
+      setFormData({
+        nombre: product.nombre,
+        precio: product.precio,
+        cantidad: product.cantidad,
+        descripcion: product.descripcion,
+        idProveedor: product.idProveedor || '',
+        imagen: product.imagen || ''
+      });
+    } else {
+      setEditingId(null);
+      setPreviewImage(null);
+      setFormData({ nombre: '', precio: '', cantidad: '', descripcion: '', idProveedor: '', imagen: '' });
+    }
+    setIsModalOpen(true);
   };
 
-  if (loadingProds) return (
-    <div className="flex flex-col items-center justify-center p-20 md:p-40 space-y-4">
-        <Loader2 className="animate-spin text-amber-800 w-12 h-12" />
-        <p className="text-stone-400 font-black uppercase tracking-widest text-xs italic">Moliendo inventario...</p>
-    </div>
-  );
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setEditingId(null);
+    setPreviewImage(null);
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!formData.idProveedor) return notify.error("Error", "Seleccione un proveedor.");
+    saveMutation.mutate(formData);
+  };
+
+  if (loadingProds) return <div className="flex justify-center p-40"><Loader2 className="animate-spin text-amber-800 w-12" /></div>;
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
-      {/* HEADER RESPONSIVE */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 px-4">
-        <h2 className="text-3xl md:text-4xl font-black text-stone-800 tracking-tight uppercase italic leading-none">
-            Inventario <span className="text-amber-800">Valenci</span>
-        </h2>
-        <button 
-            onClick={() => setIsModalOpen(true)} 
-            className="w-full sm:w-auto bg-stone-900 text-amber-500 px-6 py-4 rounded-2xl font-black flex items-center justify-center gap-3 hover:bg-amber-600 hover:text-stone-950 transition-all shadow-xl active:scale-95"
-        >
-          <Plus className="w-5 h-5" /> NUEVA VARIEDAD
+      <div className="flex flex-col sm:flex-row justify-between items-center gap-4 px-4">
+        <h2 className="text-3xl md:text-4xl font-black text-stone-800 uppercase italic">Inventario Valenci</h2>
+        <button onClick={() => openModal()} className="w-full sm:w-auto bg-stone-900 text-amber-500 px-6 py-4 rounded-2xl font-black flex items-center justify-center gap-3 hover:bg-amber-600 transition-all shadow-xl">
+          <Plus /> NUEVA VARIEDAD
         </button>
       </div>
 
-      {/* CONTENEDOR DE DATOS: TABLA (Desktop) / CARDS (Móvil) */}
       <div className="bg-white rounded-[2rem] md:rounded-[3rem] shadow-2xl border border-stone-100 overflow-hidden">
-        
-        {/* VISTA DESKTOP (Tabla) */}
         <div className="hidden md:block overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead className="bg-stone-900 text-stone-400 text-[10px] font-black uppercase tracking-widest border-b border-stone-800">
-                <tr>
-                  <th className="p-8">Variedad</th>
-                  <th className="p-8">Proveedor</th>
-                  <th className="p-8 text-right">Precio</th>
-                  <th className="p-8 text-center">Stock</th>
-                  <th className="p-8 text-center">Acciones</th>
+          <table className="w-full text-left border-collapse">
+            <thead className="bg-stone-900 text-stone-400 text-[10px] font-black uppercase tracking-widest">
+              <tr>
+                <th className="p-8">Visual</th>
+                <th className="p-8">Variedad</th>
+                <th className="p-8 text-right">Precio</th>
+                <th className="p-8 text-center">Stock</th>
+                <th className="p-8 text-center">Gestión</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-stone-50">
+              {products?.map((p) => (
+                <tr key={p.id} className="hover:bg-amber-50/20 transition-colors group">
+                  <td className="p-8">
+                    {p.imagen ? (
+                      <img src={p.imagen} className="w-14 h-14 rounded-2xl object-cover shadow-md" alt={p.nombre} />
+                    ) : (
+                      <div className="w-14 h-14 bg-stone-50 rounded-2xl flex items-center justify-center text-stone-200"><Coffee /></div>
+                    )}
+                  </td>
+                  <td className="p-8 font-bold text-stone-800 uppercase tracking-tighter">{p.nombre}</td>
+                  <td className="p-8 text-right font-black text-amber-900">${p.precio?.toLocaleString()}</td>
+                  <td className="p-8 text-center">
+                    <span className={`px-4 py-2 rounded-xl text-[10px] font-black ${p.cantidad < 15 ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>
+                      {p.cantidad} UND
+                    </span>
+                  </td>
+                  <td className="p-8 text-center">
+                    <div className="flex justify-center gap-2">
+                      <button onClick={() => openModal(p)} className="p-3 text-stone-400 hover:text-amber-800 hover:bg-amber-50 rounded-xl transition-all"><Edit2 size={18} /></button>
+                      <button onClick={() => deleteMutation.mutate(p.id)} className="p-3 text-stone-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"><Trash2 size={18} /></button>
+                    </div>
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-stone-50">
-                {products?.map((p) => (
-                  <tr key={p.id} className="hover:bg-amber-50/20 transition-colors">
-                    <td className="p-8">
-                      <div className="flex items-center gap-4">
-                        <Coffee className="text-amber-800 w-5 h-5" />
-                        <span className="font-bold text-stone-800 text-lg uppercase tracking-tighter">{p.nombre}</span>
-                      </div>
-                    </td>
-                    <td className="p-8 text-stone-500 font-bold text-xs uppercase italic">{p.nombreProveedor || 'N/A'}</td>
-                    <td className="p-8 text-right font-black text-amber-900 text-xl">${p.precio?.toLocaleString()}</td>
-                    <td className="p-8 text-center">
-                      <span className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase ${p.cantidad < 15 ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>
-                        {p.cantidad} UND
-                      </span>
-                    </td>
-                    <td className="p-8 text-center">
-                        <button 
-                            onClick={() => deleteMutation.mutate(p.id)}
-                            className="p-3 text-stone-300 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
-                        >
-                            <Trash2 className="w-5 h-5" />
-                        </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+              ))}
+            </tbody>
+          </table>
         </div>
 
-        {/* VISTA MÓVIL (Stackable Cards) */}
+        {/* VISTA MÓVIL */}
         <div className="md:hidden divide-y divide-stone-100">
-            {products?.map((p) => (
-                <div key={p.id} className="p-6 space-y-4">
-                    <div className="flex justify-between items-start">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 bg-stone-100 rounded-lg"><Coffee className="w-5 h-5 text-amber-800" /></div>
-                            <div>
-                                <h4 className="font-black text-stone-800 uppercase tracking-tight">{p.nombre}</h4>
-                                <p className="text-[10px] font-bold text-stone-400 uppercase italic">{p.nombreProveedor}</p>
-                            </div>
-                        </div>
-                        <button onClick={() => deleteMutation.mutate(p.id)} className="p-2 text-red-400"><Trash2 className="w-5 h-5" /></button>
-                    </div>
-                    <div className="flex justify-between items-end bg-stone-50 p-4 rounded-2xl">
-                        <div>
-                            <p className="text-[8px] font-black text-stone-400 uppercase tracking-widest mb-0.5">Precio x Unidad</p>
-                            <p className="font-black text-amber-900 text-lg">${p.precio?.toLocaleString()}</p>
-                        </div>
-                        <div className="text-right">
-                            <p className="text-[8px] font-black text-stone-400 uppercase tracking-widest mb-1 text-right">Existencias</p>
-                            <span className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase ${p.cantidad < 15 ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>
-                                {p.cantidad} UNIDADES
-                            </span>
-                        </div>
-                    </div>
+          {products?.map((p) => (
+            <div key={p.id} className="p-6 space-y-4">
+              <div className="flex justify-between items-start">
+                <div className="flex items-center gap-4">
+                  {p.imagen ? <img src={p.imagen} className="w-12 h-12 rounded-xl object-cover" /> : <Coffee className="text-stone-200" />}
+                  <span className="font-black text-stone-800 uppercase text-sm">{p.nombre}</span>
                 </div>
-            ))}
-            {products?.length === 0 && (
-                <div className="p-10 text-center text-stone-400 italic text-sm">Sin variedades registradas</div>
-            )}
+                <div className="flex gap-1">
+                  <button onClick={() => openModal(p)} className="p-2 text-amber-600"><Edit2 size={18} /></button>
+                  <button onClick={() => deleteMutation.mutate(p.id)} className="p-2 text-red-400"><Trash2 size={18} /></button>
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 
-      {/* MODAL RESPONSIVE */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
-          <div className="bg-white w-full max-w-lg rounded-[2.5rem] p-6 md:p-10 shadow-2xl relative animate-in zoom-in-95 duration-300">
-            <button 
-                onClick={() => setIsModalOpen(false)} 
-                className="absolute top-6 right-6 p-2 hover:bg-stone-100 rounded-full transition-colors"
-            >
-                <X className="w-6 h-6 text-stone-400" />
-            </button>
-            
-            <div className="flex items-center gap-3 mb-8">
-                <Package className="text-amber-800 w-6 h-6" />
-                <h3 className="text-2xl font-black text-stone-800 uppercase tracking-tighter italic">Nueva Cosecha</h3>
-            </div>
-            
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-1">
-                <label className="text-[9px] font-black text-stone-400 uppercase tracking-widest ml-4">Nombre de Variedad</label>
-                <input required className="w-full p-4 bg-stone-50 border border-stone-100 rounded-2xl font-bold outline-none focus:border-amber-500 transition-all" value={formData.nombre} onChange={(e) => setFormData({...formData, nombre: e.target.value})} placeholder="Ej: Catuaí Amarillo" />
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                    <label className="text-[9px] font-black text-stone-400 uppercase tracking-widest ml-4">Precio ($)</label>
-                    <input type="number" required className="w-full p-4 bg-stone-50 border border-stone-100 rounded-2xl font-bold outline-none focus:border-amber-500 transition-all" value={formData.precio} onChange={(e) => setFormData({...formData, precio: e.target.value})} placeholder="0.00" />
-                </div>
-                <div className="space-y-1">
-                    <label className="text-[9px] font-black text-stone-400 uppercase tracking-widest ml-4">Cantidad</label>
-                    <input type="number" required className="w-full p-4 bg-stone-50 border border-stone-100 rounded-2xl font-bold outline-none focus:border-amber-500 transition-all" value={formData.cantidad} onChange={(e) => setFormData({...formData, cantidad: e.target.value})} placeholder="Uds" />
+          <div className="bg-white w-full max-w-lg rounded-[2.5rem] p-6 md:p-10 shadow-2xl relative animate-in zoom-in-95 duration-300 overflow-y-auto max-h-[90vh]">
+            <button onClick={closeModal} className="absolute top-6 right-6 p-2 text-stone-400 hover:bg-stone-100 rounded-full"><X /></button>
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="flex flex-col items-center gap-3">
+                <div className="relative group w-32 h-32 md:w-40 md:h-40">
+                  <div className="w-full h-full rounded-[2.5rem] bg-stone-50 border-2 border-dashed border-stone-200 flex items-center justify-center overflow-hidden">
+                    {previewImage ? <img src={previewImage} className="w-full h-full object-cover" /> : <ImageIcon className="text-stone-200" />}
+                  </div>
+                  <label className="absolute inset-0 cursor-pointer flex items-center justify-center bg-stone-900/0 group-hover:bg-stone-900/20 transition-all rounded-[2.5rem]">
+                    <input type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
+                    <div className="bg-white p-2 rounded-xl shadow-lg opacity-0 group-hover:opacity-100"><Plus size={20} className="text-amber-800" /></div>
+                  </label>
                 </div>
               </div>
-
-              <div className="space-y-1 relative">
-                <label className="text-[9px] font-black text-stone-400 uppercase tracking-widest ml-4">Aliado Proveedor</label>
-                <div className="relative">
-                    <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-stone-300" />
-                    <select 
-                      required 
-                      className="w-full pl-12 p-4 bg-stone-50 border border-stone-100 rounded-2xl font-bold outline-none appearance-none focus:border-amber-500 transition-all" 
-                      value={formData.idProveedor} 
-                      onChange={(e) => setFormData({...formData, idProveedor: e.target.value})}
-                    >
-                      <option value="">Seleccionar...</option>
-                      {suppliers?.map(s => (
-                        <option key={s.id} value={s.id}>{s.nombreEmpresa}</option>
-                      ))}
-                    </select>
+              <div className="space-y-4">
+                <input required className="w-full p-4 bg-stone-50 border border-stone-100 rounded-2xl font-bold" value={formData.nombre} onChange={(e) => setFormData({...formData, nombre: e.target.value})} placeholder="Nombre" />
+                <div className="grid grid-cols-2 gap-4">
+                  <input type="number" required className="w-full p-4 bg-stone-50 border border-stone-100 rounded-2xl font-bold" value={formData.precio} onChange={(e) => setFormData({...formData, precio: e.target.value})} placeholder="Precio" />
+                  <input type="number" required className="w-full p-4 bg-stone-50 border border-stone-100 rounded-2xl font-bold" value={formData.cantidad} onChange={(e) => setFormData({...formData, cantidad: e.target.value})} placeholder="Stock" />
                 </div>
+                <select required className="w-full p-4 bg-stone-50 border border-stone-100 rounded-2xl font-bold" value={formData.idProveedor} onChange={(e) => setFormData({...formData, idProveedor: e.target.value})}>
+                  <option value="">Proveedor...</option>
+                  {suppliers?.map(s => <option key={s.id} value={s.id}>{s.nombreEmpresa}</option>)}
+                </select>
+                <textarea className="w-full p-4 bg-stone-50 border border-stone-100 rounded-2xl font-bold h-24 resize-none" value={formData.descripcion} onChange={(e) => setFormData({...formData, descripcion: e.target.value})} placeholder="Descripción..." />
               </div>
-
-              <div className="space-y-1">
-                <label className="text-[9px] font-black text-stone-400 uppercase tracking-widest ml-4">Perfil de Tostado / Notas</label>
-                <textarea className="w-full p-4 bg-stone-50 border border-stone-100 rounded-2xl font-bold h-24 outline-none focus:border-amber-500 transition-all resize-none" value={formData.descripcion} onChange={(e) => setFormData({...formData, descripcion: e.target.value})} placeholder="Describa el origen y notas de cata..." />
-              </div>
-              
-              <button 
-                type="submit" 
-                disabled={addMutation.isPending} 
-                className="w-full bg-stone-900 text-amber-500 py-5 rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-amber-600 hover:text-stone-950 transition-all flex items-center justify-center gap-3 disabled:opacity-50 shadow-xl shadow-amber-900/10"
-              >
-                {addMutation.isPending ? <Loader2 className="animate-spin" /> : <Save className="w-4 h-4" />}
-                CONFIRMAR REGISTRO
+              <button type="submit" disabled={saveMutation.isPending} className="w-full bg-stone-900 text-amber-500 py-5 rounded-2xl font-black uppercase text-xs shadow-xl flex justify-center items-center gap-2">
+                {saveMutation.isPending ? <Loader2 className="animate-spin" /> : <Save size={18} />}
+                {editingId ? 'ACTUALIZAR VARIEDAD' : 'GUARDAR EN INVENTARIO'}
               </button>
             </form>
           </div>

@@ -1,4 +1,4 @@
-import { ShoppingCart, CheckCircle2, Award } from 'lucide-react';
+import { ShoppingCart, CheckCircle2, Award, Coffee } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useState } from 'react';
 
@@ -7,10 +7,9 @@ const ProductCard = ({ product }) => {
   const [added, setAdded] = useState(false);
 
   const handleAdd = () => {
-    // Mapeamos al formato que espera el carrito antes de añadirlo
     const itemForCart = {
         id: product.id,
-        name: product.nombre, // Usamos la propiedad del DTO
+        name: product.nombre, 
         price: product.precio,
         quantity: 1
     };
@@ -21,26 +20,37 @@ const ProductCard = ({ product }) => {
 
   return (
     <div className="bg-white rounded-[2.5rem] p-4 border border-stone-100 shadow-sm hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 group">
+      {/* AREA VISUAL: Renderiza la imagen Base64 o el Icono por defecto */}
       <div className="h-64 bg-stone-100 rounded-[2rem] relative overflow-hidden flex items-center justify-center bg-gradient-to-br from-stone-100 to-stone-200">
-        <div className="absolute top-4 left-4 bg-white/80 backdrop-blur-md px-3 py-1 rounded-full flex items-center gap-1.5 shadow-sm">
+        <div className="absolute top-4 left-4 bg-white/80 backdrop-blur-md px-3 py-1 rounded-full flex items-center gap-1.5 shadow-sm z-10">
           <Award className="w-3 h-3 text-amber-700" />
           <span className="text-[8px] font-black uppercase tracking-widest text-stone-800">Especialidad</span>
         </div>
         
-        <div className="text-6xl group-hover:scale-110 transition-transform duration-700 select-none drop-shadow-2xl">
-          ☕
-        </div>
+        {product.imagen ? (
+            <img 
+                src={product.imagen} 
+                alt={product.nombre} 
+                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
+            />
+        ) : (
+            <div className="text-6xl group-hover:scale-110 transition-transform duration-700 select-none drop-shadow-2xl">
+              <Coffee className="w-16 h-16 text-stone-300" />
+            </div>
+        )}
+        
+        <div className="absolute inset-0 bg-amber-900/0 group-hover:bg-amber-900/5 transition-colors duration-500" />
       </div>
 
       <div className="p-4 pt-6">
         <div className="flex flex-col gap-1 mb-4">
-          <h3 className="text-xl font-black text-stone-800 leading-tight tracking-tighter uppercase">
+          <h3 className="text-xl font-black text-stone-800 leading-tight tracking-tighter uppercase truncate">
             {product.nombre}
           </h3>
           <p className="text-[10px] font-bold text-stone-400 uppercase tracking-[0.2em]">Origen Támesis</p>
         </div>
         
-        <p className="text-sm text-stone-500 font-medium line-clamp-2 leading-relaxed mb-6 opacity-80">
+        <p className="text-sm text-stone-500 font-medium line-clamp-2 leading-relaxed mb-6 opacity-80 h-10">
           {product.descripcion}
         </p>
         
