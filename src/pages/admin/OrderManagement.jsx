@@ -8,8 +8,8 @@ import { generateInvoiceHTML } from '../../utils/invoiceGenerator';
 const OrderManagement = () => {
   const queryClient = useQueryClient();
   const [expandedOrder, setExpandedOrder] = useState(null);
+  const [isDownloading, setIsDownloading] = useState(false); // Estado para feedback visual
 
-  // Cargamos los pedidos (que ya deben venir con la factura anidada desde el backend)
   const { data: orders, isLoading } = useQuery({
     queryKey: ['admin-orders'],
     queryFn: async () => (await api.get('/pedidos')).data
@@ -20,25 +20,35 @@ const OrderManagement = () => {
     onSuccess: () => {
       queryClient.invalidateQueries(['admin-orders']);
       notify.success("¡Sincronizado!", "Estado de cosecha actualizado.");
-    },
-    onError: (error) => {
-      notify.error("Error", error.response?.data?.message || "No se pudo actualizar el estado.");
     }
   });
 
-  // LOGICA REEMPLAZADA: Igual que en el módulo de facturas
-  const handleDownloadInvoice = (order) => {
-    // Validamos que el pedido tenga el objeto factura cargado
-    if (!order.factura) {
-      return notify.error(
-        "No Disponible", 
-        "No existe un registro contable para este pedido aún."
-      );
+  // ESTA ES LA LÓGICA CLAVE: Imita el comportamiento de InvoiceManagement
+  const handleDownloadInvoice = async (order) => {
+    // 1. Verificación de estado igual que en tus capturas de pantalla
+    const estado = order.estadoPedido?.trim().toUpperCase();
+    if (estado !== 'PAGADO' && estado !== 'ENTREGADO' && estado !== 'ENVIADO') {
+      return notify.error("Acción Bloqueada", "El pedido debe estar PAGADO para generar el comprobante.");
     }
-    
-    // Ejecutamos la misma función que funciona en el otro módulo
-    generateInvoiceHTML(order.factura);
-    notify.success("Documento Listo", "Generando comprobante oficial...");
+
+    setIsDownloading(true);
+    try {
+      // 2. Buscamos la factura real usando el endpoint de facturas por ID de pedido
+      // Esto garantiza que el objeto tenga el formato que generateInvoiceHTML espera
+      const response = await api.get(`/facturas/pedido/${order.idPedido}`);
+      const facturaData = response.data;
+
+      if (facturaData) {
+        // 3. Ejecutamos exactamente la misma función que en InvoiceManagement
+        generateInvoiceHTML(facturaData);
+        notify.success("Documento Listo", "Factura generada correctamente.");
+      }
+    } catch (err) {
+      console.error("Error al obtener factura:", err);
+      notify.error("Error", "No se encontró un registro contable físico para este pedido.");
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   if (isLoading) return (
@@ -81,7 +91,6 @@ const OrderManagement = () => {
                   </p>
                 </div>
 
-                {/* Selector de Estado */}
                 <div className="bg-stone-50 p-3 rounded-2xl border border-stone-100 flex items-center gap-3">
                   <select 
                     className="bg-transparent border-none text-[11px] font-black uppercase text-stone-700 outline-none cursor-pointer"
@@ -96,17 +105,12 @@ const OrderManagement = () => {
                 </div>
 
                 <div className="flex gap-2">
-                  {/* BOTÓN UNIFICADO: Solo se activa si el pedido tiene factura cargada */}
                   <button 
                     onClick={() => handleDownloadInvoice(order)}
-                    disabled={!order.factura}
-                    className={`p-4 rounded-2xl transition-all shadow-lg active:scale-90 ${
-                      order.factura 
-                        ? 'bg-stone-900 text-amber-500 hover:bg-amber-600 hover:text-stone-900' 
-                        : 'bg-stone-100 text-stone-300 cursor-not-allowed'
-                    }`}
+                    disabled={isDownloading}
+                    className="bg-stone-900 text-amber-500 p-4 rounded-2xl hover:bg-amber-600 hover:text-stone-900 transition-all shadow-lg active:scale-90 disabled:opacity-50"
                   >
-                    <Download size={20} />
+                    {isDownloading ? <Loader2 className="animate-spin" size={20} /> : <Download size={20} />}
                   </button>
 
                   <button 
@@ -121,7 +125,6 @@ const OrderManagement = () => {
               </div>
             </div>
 
-            {/* Detalles Expandibles */}
             {expandedOrder === order.idPedido && (
               <div className="p-8 bg-stone-50 border-t border-stone-100 animate-in slide-in-from-top-4">
                 <table className="w-full text-left">
