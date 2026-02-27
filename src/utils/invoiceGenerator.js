@@ -1,16 +1,14 @@
 export const generateInvoiceHTML = (factura) => {
   const printWindow = window.open('', '_blank');
   
-  // Sincronizado con DtoRespuestaFactura: fecha y total
-  const nroFactura = factura.idFactura ? String(factura.idFactura).padStart(4, '0') : "0001";
+  // Sincronización estricta con el nuevo DTO 
+  const nroFactura = factura.idFactura ? String(factura.idFactura).padStart(4, '0') : "0000";
   const clienteNombre = factura.nombreCliente || "Cliente Valenci";
   const clienteEmail = factura.correoCliente || "contacto@valenci.com";
   
-  // Prioridad a 'fecha' según tu DTO actual
   const fechaOriginal = factura.fecha || factura.fechaFactura;
   const fechaFormateada = fechaOriginal ? new Date(fechaOriginal).toLocaleDateString() : new Date().toLocaleDateString();
 
-  // Prioridad a 'total' según tu DTO actual
   const montoTotal = factura.total || factura.totalFactura || 0;
   const montoIva = factura.iva || 0;
   const subtotalBase = montoTotal - montoIva;
@@ -36,7 +34,6 @@ export const generateInvoiceHTML = (factura) => {
           IMPRIMIR COMPROBANTE
         </button>
       </div>
-
       <div class="max-w-4xl mx-auto bg-white rounded-[3.5rem] shadow-2xl overflow-hidden border border-stone-100">
         <div class="coffee-gradient p-12 text-white flex justify-between items-center relative">
           <div>
@@ -53,65 +50,63 @@ export const generateInvoiceHTML = (factura) => {
             <p class="text-5xl font-extrabold tracking-tighter">#${nroFactura}</p>
           </div>
         </div>
-
+        
         <div class="p-12">
-          <div class="grid grid-cols-2 gap-20 mb-16">
+          <div class="grid grid-cols-2 gap-12 mb-12">
             <div>
-              <p class="text-[10px] font-black text-stone-300 uppercase tracking-widest mb-4">Cliente:</p>
-              <h3 class="text-2xl font-extrabold text-stone-800">${clienteNombre}</h3>
-              <p class="text-stone-500 font-bold text-sm mt-1">${clienteEmail}</p>
+              <h3 class="text-[10px] font-black uppercase tracking-widest text-stone-400 mb-3">Facturar a</h3>
+              <p class="text-xl font-bold text-stone-800">${clienteNombre}</p>
+              <p class="text-stone-500 font-medium">${clienteEmail}</p>
             </div>
             <div class="text-right">
-              <p class="text-[10px] font-black text-stone-300 uppercase tracking-widest mb-4">Fecha:</p>
-              <p class="text-2xl font-extrabold text-stone-800">${fechaFormateada}</p>
+              <h3 class="text-[10px] font-black uppercase tracking-widest text-stone-400 mb-3">Fecha de Emisión</h3>
+              <p class="text-xl font-bold text-stone-800">${fechaFormateada}</p>
             </div>
           </div>
 
-          <table class="w-full mb-16">
+          <table class="w-full mb-12">
             <thead>
-              <tr class="text-stone-400 text-[10px] font-black uppercase text-left tracking-widest border-b border-stone-100">
-                <th class="pb-6">Descripción</th>
-                <th class="pb-6 text-center">Cant.</th>
-                <th class="pb-6 text-right">Precio</th>
-                <th class="pb-6 text-right">Subtotal</th>
+              <tr class="border-b-2 border-stone-100">
+                <th class="text-left py-4 text-[10px] font-black uppercase tracking-widest text-stone-400">Producto</th>
+                <th class="text-center py-4 text-[10px] font-black uppercase tracking-widest text-stone-400">Cant.</th>
+                <th class="text-right py-4 text-[10px] font-black uppercase tracking-widest text-stone-400">Precio</th>
+                <th class="text-right py-4 text-[10px] font-black uppercase tracking-widest text-stone-400">Subtotal</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-stone-50">
+            <tbody>
               ${items.map(item => `
-                <tr>
-                  <td class="py-8 font-extrabold text-stone-800 text-lg uppercase">${item.nombreProducto}</td>
-                  <td class="py-8 text-center font-bold text-stone-500">${item.cantidad}</td>
-                  <td class="py-8 text-right font-bold text-stone-400">$${(item.precioUnitario || 0).toLocaleString()}</td>
-                  <td class="py-8 text-right font-black text-stone-800 text-lg">$${(item.subtotal || 0).toLocaleString()}</td>
+                <tr class="border-b border-stone-50">
+                  <td class="py-6 font-bold text-stone-800">${item.nombreProducto}</td>
+                  <td class="py-6 text-center font-medium text-stone-500">${item.cantidad}</td>
+                  <td class="py-6 text-right font-medium text-stone-500">$${item.precioUnitario?.toLocaleString()}</td>
+                  <td class="py-6 text-right font-bold text-stone-800">$${item.subtotal?.toLocaleString()}</td>
                 </tr>
               `).join('')}
             </tbody>
           </table>
 
-          <div class="flex justify-end pt-10 border-t-4 border-stone-100">
-            <div class="w-80 space-y-4">
-              <div class="flex justify-between items-center text-[10px] font-black text-stone-400 uppercase tracking-widest px-4">
-                <span>Base Imponible</span>
-                <span class="text-stone-600 font-bold">$${subtotalBase.toLocaleString()}</span>
+          <div class="flex justify-end">
+            <div class="w-64 space-y-3">
+              <div class="flex justify-between text-stone-500 font-medium">
+                <span>Subtotal</span>
+                <span>$${subtotalBase.toLocaleString()}</span>
               </div>
-              <div class="flex justify-between items-center text-[10px] font-black text-stone-400 uppercase tracking-widest px-4">
+              <div class="flex justify-between text-stone-500 font-medium">
                 <span>IVA (19%)</span>
-                <span class="text-stone-600 font-bold">$${montoIva.toLocaleString()}</span>
+                <span>$${montoIva.toLocaleString()}</span>
               </div>
-              <div class="flex justify-between items-center p-6 bg-stone-50 rounded-[2rem] border border-stone-100 mt-4 shadow-sm">
-                <span class="text-xs font-black text-stone-800 uppercase italic">Total Cobrado</span>
-                <span class="text-3xl font-extrabold text-amber-900 italic">$${montoTotal.toLocaleString()}</span>
+              <div class="flex justify-between text-2xl font-black text-amber-800 pt-3 border-t-2 border-stone-100">
+                <span>TOTAL</span>
+                <span>$${montoTotal.toLocaleString()}</span>
               </div>
             </div>
           </div>
-        </div>
-        <div class="p-12 bg-stone-50 text-center border-t border-stone-100">
-          <p class="text-[9px] font-black text-stone-300 uppercase tracking-[0.5em]">VALENCI CAFÉ APP • 2026</p>
         </div>
       </div>
     </body>
     </html>
   `;
+  
   printWindow.document.write(html);
   printWindow.document.close();
 };
